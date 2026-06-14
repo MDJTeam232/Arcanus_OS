@@ -222,17 +222,11 @@ rebrand_iso_boot_files() {
   \) -print0)
 }
 
-regenerate_manifest() {
-  log "Regenerating filesystem manifest"
-  chroot "$SQUASHFS_ROOT" dpkg-query -W --showformat='${Package} ${Version}\n' > "$ISO_ROOT/casper/filesystem.manifest"
-  cp "$ISO_ROOT/casper/filesystem.manifest" "$ISO_ROOT/casper/filesystem.manifest-desktop" 2>/dev/null || true
-  du -sx --block-size=1 "$SQUASHFS_ROOT" | awk '{print $1}' > "$ISO_ROOT/casper/filesystem.size"
-}
-
 regenerate_squashfs() {
   log "Regenerating squashfs"
   rm -f "$ISO_ROOT/casper/filesystem.squashfs"
-  mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" -noappend -comp xz -b 1M >/dev/null
+  # This version now correctly excludes virtual filesystems that cause the build to hang
+  mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" -noappend -comp xz -b 1M -e proc -e sys -e dev -e run -e tmp >/dev/null
 }
 
 regenerate_md5sums() {

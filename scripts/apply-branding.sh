@@ -72,6 +72,9 @@ install -d "$ROOTFS/usr/share/backgrounds/arcanus"
 install -m 0644 "$WALLPAPER" "$ROOTFS/usr/share/backgrounds/arcanus/arcanus-alpha-wallpaper.png"
 install -m 0644 "$LOGIN_WALLPAPER" "$ROOTFS/usr/share/backgrounds/arcanus/arcanus-login-wallpaper.png"
 
+install -d "$ROOTFS/usr/share/icons/hicolor/scalable/apps"
+cp "$REPO_ROOT/branding/icons/"*.svg "$ROOTFS/usr/share/icons/hicolor/scalable/apps/"
+
 install -d "$ROOTFS/usr/share/pixmaps"
 install -m 0644 "$LOGO" "$ROOTFS/usr/share/pixmaps/arcanus-logo.png"
 
