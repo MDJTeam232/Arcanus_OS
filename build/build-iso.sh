@@ -334,7 +334,6 @@ main() {
   extract_iso
   extract_squashfs
   apply_arcanus_branding
-  regenerate_manifest
   regenerate_squashfs
   regenerate_md5sums
   repack_iso
