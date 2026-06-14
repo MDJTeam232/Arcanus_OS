@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+TEXT='Welcome to Arcanus OS
+
+Secure.
+Private.
+Independent.
+
+Your Software.
+Your Data.
+Your Future.'
+
+if command -v zenity >/dev/null 2>&1; then
+  zenity --info --title="Welcome to Arcanus OS" --text="$TEXT" --width=380 || true
+fi
+
+exec arcanus-control-centre --welcome

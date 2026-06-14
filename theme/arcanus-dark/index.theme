@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=arcanus-dark
+Comment=Arcanus OS dark theme for Alpha
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=arcanus-dark
+MetacityTheme=Mint-Y-Dark-Purple
+IconTheme=Mint-Y
+CursorTheme=DMZ-White
+ButtonLayout=menu:minimize,maximize,close

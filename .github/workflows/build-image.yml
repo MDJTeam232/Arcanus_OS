@@ -1,0 +1,104 @@
+name: Build Arcanus OS Alpha ISO
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "branding/**"
+      - "build/**"
+      - "control-centre/**"
+      - "docs/**"
+      - "scripts/**"
+      - "theme/**"
+      - "Makefile"
+      - ".github/workflows/build-image.yml"
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install validation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ripgrep
+
+      - name: Verify executable scripts
+        run: |
+          chmod +x scripts/verify-setup.sh scripts/apply-branding.sh scripts/package-artifact.sh
+          chmod +x build/build-iso.sh build/build-locally.sh
+          chmod +x control-centre/arcanus-control-centre control-centre/arcanus-welcome
+
+      - name: Validate scaffold
+        run: make validate
+
+  build-iso:
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    if: github.event_name != 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ISO build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            ca-certificates \
+            curl \
+            gpg \
+            isolinux \
+            ripgrep \
+            rsync \
+            squashfs-tools \
+            syslinux-common \
+            xorriso
+
+      - name: Build ISO
+        run: |
+          chmod +x scripts/verify-setup.sh scripts/apply-branding.sh scripts/package-artifact.sh
+          chmod +x build/build-iso.sh build/build-locally.sh
+          chmod +x control-centre/arcanus-control-centre control-centre/arcanus-welcome
+          sudo build/build-iso.sh
+
+      - name: Verify checksum
+        run: |
+          cd dist
+          sha256sum -c ArcanusOS-Alpha-x86_64.iso.sha256
+          ls -lh ArcanusOS-Alpha-x86_64.iso ArcanusOS-Alpha-x86_64.iso.sha256
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ArcanusOS-Alpha-x86_64
+          path: |
+            dist/ArcanusOS-Alpha-x86_64.iso
+            dist/ArcanusOS-Alpha-x86_64.iso.sha256
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: alpha-${{ github.run_number }}
+          name: Arcanus OS Alpha ${{ github.run_number }}
+          prerelease: true
+          files: |
+            dist/ArcanusOS-Alpha-x86_64.iso
+            dist/ArcanusOS-Alpha-x86_64.iso.sha256
+          body: |
+            Arcanus OS Alpha ISO build from commit ${{ github.sha }}.
+
+            Base: Linux Mint XFCE upstream ISO
+            Output: ArcanusOS-Alpha-x86_64.iso

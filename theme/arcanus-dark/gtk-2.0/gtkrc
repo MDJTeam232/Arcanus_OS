@@ -1,0 +1,3 @@
+include "/usr/share/themes/Mint-Y-Dark-Purple/gtk-2.0/gtkrc"
+
+gtk-color-scheme = "bg_color:#050510\nfg_color:#FFFFFF\nbase_color:#0B0B18\ntext_color:#FFFFFF\nselected_bg_color:#854CFF\nselected_fg_color:#FFFFFF"

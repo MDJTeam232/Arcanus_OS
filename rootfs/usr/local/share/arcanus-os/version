@@ -1,0 +1,5 @@
+PRETTY_NAME="Arcanus OS Alpha 0.1"
+NAME="Arcanus OS"
+VERSION="Alpha 0.1"
+BASE="Linux Mint XFCE"
+BUILD_TARGET="Dell OptiPlex Alpha"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Arcanus Welcome
+Comment=Welcome to Arcanus OS
+Exec=arcanus-welcome
+Icon=arcanus-logo
+Terminal=false
+Categories=System;
+StartupNotify=true

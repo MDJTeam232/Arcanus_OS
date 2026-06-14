@@ -1,0 +1,31 @@
+@import url("../../Mint-Y-Dark-Purple/gtk-3.0/gtk.css");
+
+@define-color theme_bg_color #050510;
+@define-color theme_fg_color #FFFFFF;
+@define-color theme_base_color #0B0B18;
+@define-color theme_text_color #FFFFFF;
+@define-color theme_selected_bg_color #854CFF;
+@define-color theme_selected_fg_color #FFFFFF;
+@define-color accent_color #CFC3FF;
+
+window,
+dialog,
+popover,
+menu {
+  background-color: #050510;
+  color: #FFFFFF;
+}
+
+button.suggested-action,
+button.default,
+selection {
+  background-color: #854CFF;
+  color: #FFFFFF;
+}
+
+headerbar,
+.titlebar {
+  background-color: #090918;
+  color: #FFFFFF;
+  border-bottom-color: #4E2D9E;
+}

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Arcanus Welcome
+Comment=Open the Arcanus OS welcome flow
+Exec=arcanus-welcome
+Icon=arcanus-logo
+Terminal=false
+OnlyShowIn=XFCE;
+X-GNOME-Autostart-enabled=true

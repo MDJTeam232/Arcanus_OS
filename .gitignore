@@ -1,0 +1,8 @@
+.DS_Store
+*.img
+*.img.xz
+.build/
+.cache/
+dist/*
+!dist/README.md
+mount/

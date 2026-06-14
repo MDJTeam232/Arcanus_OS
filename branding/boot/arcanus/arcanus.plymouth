@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Arcanus
+Description=Arcanus OS Alpha boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/arcanus
+ScriptFile=/usr/share/plymouth/themes/arcanus/arcanus.script

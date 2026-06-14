@@ -1,0 +1,6 @@
+@import url("../../Mint-Y-Dark-Purple/gtk-4.0/gtk.css");
+
+@define-color accent_bg_color #854CFF;
+@define-color accent_color #CFC3FF;
+@define-color window_bg_color #050510;
+@define-color window_fg_color #FFFFFF;

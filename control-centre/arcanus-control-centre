@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+VERSION_FILE="/usr/local/share/arcanus-os/version"
+
+read_version() {
+  if [[ -f "$VERSION_FILE" ]]; then
+    sed -n 's/^PRETTY_NAME="\(.*\)"$/\1/p' "$VERSION_FILE" | head -1
+  else
+    echo "Arcanus OS Alpha"
+  fi
+}
+
+run_terminal() {
+  local title="$1"
+  local script="$2"
+  local quoted_script
+
+  if command -v xfce4-terminal >/dev/null 2>&1; then
+    printf -v quoted_script "%q" "$script"
+    xfce4-terminal --title="$title" --hold --command="sh -lc $quoted_script"
+  elif command -v xterm >/dev/null 2>&1; then
+    xterm -T "$title" -e sh -lc "$script; printf '\nPress Enter to close...'; read _"
+  else
+    sh -lc "$script"
+  fi
+}
+
+show_about() {
+  local text
+  text="$(read_version)
+
+Secure.
+Private.
+Independent.
+
+Your Software.
+Your Data.
+Your Future."
+
+  if command -v zenity >/dev/null 2>&1; then
+    zenity --info --title="About Arcanus OS" --text="$text" --width=360
+  else
+    printf '%s\n' "$text"
+  fi
+}
+
+open_section() {
+  case "$1" in
+    Updates)
+      if command -v mintupdate >/dev/null 2>&1; then
+        mintupdate &
+      elif command -v update-manager >/dev/null 2>&1; then
+        update-manager &
+      else
+        run_terminal "Updates" "apt list --upgradable 2>/dev/null || true"
+      fi
+      ;;
+    Storage)
+      if command -v gnome-disks >/dev/null 2>&1; then
+        gnome-disks &
+      else
+        run_terminal "Storage" "lsblk -f"
+      fi
+      ;;
+    Hardware)
+      if command -v hardinfo >/dev/null 2>&1; then
+        hardinfo &
+      else
+        run_terminal "Hardware" "inxi -Fxz 2>/dev/null || lscpu"
+      fi
+      ;;
+    Security)
+      run_terminal "Security" "printf 'Encryption status:\n'; lsblk -f; printf '\nFirewall status:\n'; ufw status 2>/dev/null || true"
+      ;;
+    Applications)
+      if command -v xfce4-appfinder >/dev/null 2>&1; then
+        xfce4-appfinder &
+      else
+        run_terminal "Applications" "printf 'Application finder is not installed.\n'"
+      fi
+      ;;
+    Modules)
+      run_terminal "Modules" "printf 'No Arcanus modules are installed in Alpha.\n'"
+      ;;
+    About)
+      show_about
+      ;;
+  esac
+}
+
+if [[ "${1:-}" == "--welcome" ]]; then
+  show_about
+fi
+
+if command -v zenity >/dev/null 2>&1; then
+  while true; do
+    choice="$(zenity --list \
+      --title="Arcanus Control Centre" \
+      --text="Arcanus OS Alpha" \
+      --column="Section" \
+      Updates Storage Hardware Security Applications Modules About \
+      --height=360 \
+      --width=420 2>/dev/null || true)"
+
+    [[ -n "$choice" ]] || break
+    open_section "$choice"
+  done
+else
+  clear
+  cat <<'MENU'
+Arcanus Control Centre
+
+1. Updates
+2. Storage
+3. Hardware
+4. Security
+5. Applications
+6. Modules
+7. About
+8. Exit
+MENU
+  printf '\nSelect an option: '
+  read -r choice
+  case "$choice" in
+    1) open_section Updates ;;
+    2) open_section Storage ;;
+    3) open_section Hardware ;;
+    4) open_section Security ;;
+    5) open_section Applications ;;
+    6) open_section Modules ;;
+    7) open_section About ;;
+    *) exit 0 ;;
+  esac
+fi
