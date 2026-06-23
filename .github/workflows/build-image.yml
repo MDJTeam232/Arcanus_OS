@@ -22,7 +22,6 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,10 +45,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 150
     if: github.event_name != 'pull_request'
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      # Optimization Step: Reclaim ~30GB+ of runner disk space
+      - name: Maximize Runner Disk Space
+        run: |
+          echo "==> Reclaiming disk space from pre-installed software..."
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          echo "==> Current available storage space:"
+          df -h /
 
       - name: Install ISO build dependencies
         run: |
@@ -94,11 +103,11 @@ jobs:
           tag_name: alpha-${{ github.run_number }}
           name: Arcanus OS Alpha ${{ github.run_number }}
           prerelease: true
+          fail_on_unmatched_files: true
           files: |
             dist/ArcanusOS-Alpha-x86_64.iso
             dist/ArcanusOS-Alpha-x86_64.iso.sha256
           body: |
             Arcanus OS Alpha ISO build from commit ${{ github.sha }}.
-
             Base: Linux Mint XFCE upstream ISO
             Output: ArcanusOS-Alpha-x86_64.iso
