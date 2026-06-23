@@ -225,8 +225,13 @@ rebrand_iso_boot_files() {
 regenerate_squashfs() {
   log "Regenerating squashfs"
   rm -f "$ISO_ROOT/casper/filesystem.squashfs"
-  # This version now correctly excludes virtual filesystems that cause the build to hang
-  mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" -noappend -comp xz -b 1M -e proc -e sys -e dev -e run -e tmp >/dev/null
+  # Removed >/dev/null and added -progress to reveal the build status in CI logs
+  mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" \
+    -noappend \
+    -comp xz \
+    -b 1M \
+    -progress \
+    -e proc -e sys -e dev -e run -e tmp
 }
 
 regenerate_md5sums() {
