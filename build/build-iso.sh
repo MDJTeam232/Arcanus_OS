@@ -123,12 +123,20 @@ activate_boot_branding() {
   log "Activating Arcanus Plymouth theme inside live filesystem"
 
   bind_mount_chroot
+  
+  # Force a generic, universal storage driver layout for live hardware compatibility
+  if [[ -f "$SQUASHFS_ROOT/etc/initramfs-tools/initramfs.conf" ]]; then
+    sed -i 's/^MODULES=.*/MODULES=most/' "$SQUASHFS_ROOT/etc/initramfs-tools/initramfs.conf"
+  fi
+
   chroot "$SQUASHFS_ROOT" update-alternatives \
     --install /usr/share/plymouth/themes/default.plymouth default.plymouth \
     /usr/share/plymouth/themes/arcanus/arcanus.plymouth 200
   chroot "$SQUASHFS_ROOT" update-alternatives \
     --set default.plymouth /usr/share/plymouth/themes/arcanus/arcanus.plymouth
-  chroot "$SQUASHFS_ROOT" update-initramfs -u -k all
+  
+  # Suppress cryptsetup hook matching and rebuild the initramfs
+  chroot "$SQUASHFS_ROOT" env CRYPTSETUP=n update-initramfs -u -k all
 
   local initrd
   initrd="$(find "$SQUASHFS_ROOT/boot" -maxdepth 1 -type f -name 'initrd.img-*' | sort | tail -1)"
