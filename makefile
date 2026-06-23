@@ -2,35 +2,43 @@
 
 .PHONY: help validate build apply package clean
 
-ROOTFS ?= /mnt/mint-rootfs
+# Default staging configuration targets
+ROOTFS  ?= /mnt/mint-rootfs
+PROFILE ?= --desktop
 
 help:
-	@echo "Arcanus OS Alpha"
+	@echo "========================================================="
+	@echo " Arcanus OS Alpha Build Engine"
+	@echo "========================================================="
 	@echo ""
-	@echo "Usage: make [target]"
+	@echo "Usage: make [target] [PROFILE=--desktop|--tablet]"
 	@echo ""
 	@echo "Targets:"
-	@echo "  validate          - Check branding scaffold"
-	@echo "  build             - Build dist/ArcanusOS-Alpha-x86_64.iso"
-	@echo "  apply ROOTFS=...  - Apply branding to a mounted Mint rootfs"
-	@echo "  package IMAGE=... - Copy/rename an image artifact into dist/"
-	@echo "  clean             - Clean generated artifacts"
+	@echo "  validate          - Evaluate the selected structural workspace blueprint"
+	@echo "  build             - Compile the production x86_64 installation ISO media"
+	@echo "  apply ROOTFS=...  - Apply branding layouts directly onto a mounted rootfs target"
+	@echo "  package IMAGE=... - Format, calculate checksums, and stage custom images in dist/"
+	@echo "  clean             - Safely clear out scratch areas, build dirs, and local images"
+	@echo ""
+	@echo "Current Environment Profiles:"
+	@echo "  Target Profile:   $(PROFILE)"
+	@echo "  Mount Destination: $(ROOTFS)"
 
 validate:
-	@scripts/verify-setup.sh
+	@scripts/verify-setup.sh $(PROFILE)
 
 build: validate
-	@build/build-locally.sh
+	@build/build-locally.sh $(PROFILE)
 
 apply:
-	@scripts/apply-branding.sh "$(ROOTFS)"
+	@scripts/apply-branding.sh $(PROFILE) "$(ROOTFS)"
 
 package:
-	@[ -n "$(IMAGE)" ] || { echo "Usage: make package IMAGE=/path/to/image.img.xz"; exit 2; }
+	@[ -n "$(IMAGE)" ] || { echo "ERROR: Usage: make package IMAGE=/path/to/image.tar.gz"; exit 2; }
 	@scripts/package-artifact.sh "$(IMAGE)"
 
 clean:
-	@rm -rf .build/iso dist/*.img dist/*.img.xz dist/*.iso dist/*.sha256
-	@echo "Clean complete"
+	@rm -rf .build/iso .cache/iso dist/*.img dist/*.tar.gz dist/*.iso dist/*.sha256
+	@echo "[arcanus-make] Clean complete. Staging buffers purged."
 
 .DEFAULT_GOAL := help
