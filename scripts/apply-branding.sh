@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Parse profile option and rootfs path
+PROFILE="desktop"
+if [[ $# -eq 2 ]]; then
+  case "$1" in
+    --desktop) PROFILE="desktop"; shift ;;
+    --tablet)  PROFILE="tablet"; shift ;;
+    *) echo "Unknown option: $1 (Use --desktop or --tablet)" >&2; exit 2 ;;
+  esac
+fi
+
 if [[ $# -ne 1 ]]; then
-  echo "Usage: $0 <mounted-mint-rootfs>" >&2
+  echo "Usage: $0 [--desktop|--tablet] <mounted-rootfs>" >&2
   exit 2
 fi
 
@@ -30,6 +40,8 @@ copy_tree() {
   local source="$1"
   local target_root="$2"
 
+  [[ -d "$source" ]] || return 0
+
   while IFS= read -r -d '' dir; do
     local rel="${dir#$source}"
     install -d "$target_root/$rel"
@@ -53,11 +65,16 @@ seed_existing_users() {
     local owner
 
     install -d "$autostart_dir"
-    install -m 0644 "$OVERLAY/etc/skel/.config/autostart/arcanus-welcome.desktop" "$autostart_dir/arcanus-welcome.desktop"
+    if [[ -f "$OVERLAY/etc/skel/.config/autostart/arcanus-welcome.desktop" ]]; then
+      install -m 0644 "$OVERLAY/etc/skel/.config/autostart/arcanus-welcome.desktop" "$autostart_dir/arcanus-welcome.desktop"
+    fi
 
-    install -d "$xfce_dir"
-    install -m 0644 "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" "$xfce_dir/xfce4-desktop.xml"
-    install -m 0644 "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" "$xfce_dir/xsettings.xml"
+    # Only apply standard XFCE panel layouts if running on desktop profile
+    if [[ "$PROFILE" == "desktop" ]]; then
+      install -d "$xfce_dir"
+      [[ -f "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" ]] && install -m 0644 "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xfce4-desktop.xml" "$xfce_dir/xfce4-desktop.xml"
+      [[ -f "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" ]] && install -m 0644 "$OVERLAY/etc/xdg/xfce4/xfconf/xfce-perchannel-xml/xsettings.xml" "$xfce_dir/xsettings.xml"
+    fi
 
     if owner="$(stat -c "%u:%g" "$home_dir" 2>/dev/null || stat -f "%u:%g" "$home_dir" 2>/dev/null)"; then
       chown -R "$owner" "$autostart_dir" "$home_dir/.config/xfce4" 2>/dev/null || true
@@ -65,46 +82,59 @@ seed_existing_users() {
   done < <(find "$home_root" -mindepth 1 -maxdepth 1 -type d -print0)
 }
 
+# Apply base rootfs filesystem overlay layers
 copy_tree "$OVERLAY" "$ROOTFS"
 seed_existing_users
 
+# Core System Assets
 install -d "$ROOTFS/usr/share/backgrounds/arcanus"
 install -m 0644 "$WALLPAPER" "$ROOTFS/usr/share/backgrounds/arcanus/arcanus-alpha-wallpaper.png"
-install -m 0644 "$LOGIN_WALLPAPER" "$ROOTFS/usr/share/backgrounds/arcanus/arcanus-login-wallpaper.png"
 
-install -d "$ROOTFS/usr/share/icons/hicolor/scalable/apps"
-cp "$REPO_ROOT/branding/icons/"*.svg "$ROOTFS/usr/share/icons/hicolor/scalable/apps/"
+if [[ "$PROFILE" == "desktop" ]]; then
+  install -m 0644 "$LOGIN_WALLPAPER" "$ROOTFS/usr/share/backgrounds/arcanus/arcanus-login-wallpaper.png"
+fi
+
+if [[ -d "$REPO_ROOT/branding/icons" ]]; then
+  install -d "$ROOTFS/usr/share/icons/hicolor/scalable/apps"
+  cp "$REPO_ROOT/branding/icons/"*.svg "$ROOTFS/usr/share/icons/hicolor/scalable/apps/" 2>/dev/null || true
+fi
 
 install -d "$ROOTFS/usr/share/pixmaps"
 install -m 0644 "$LOGO" "$ROOTFS/usr/share/pixmaps/arcanus-logo.png"
 
-install -d "$ROOTFS/usr/share/plymouth/themes/arcanus"
-install -m 0644 "$BOOT_LOGO" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus-logo.png"
-install -m 0644 "$REPO_ROOT/branding/boot/arcanus/arcanus.plymouth" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus.plymouth"
-install -m 0644 "$REPO_ROOT/branding/boot/arcanus/arcanus.script" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus.script"
+# Desktop Boot & Display Theme Integration
+if [[ "$PROFILE" == "desktop" ]]; then
+  install -d "$ROOTFS/usr/share/plymouth/themes/arcanus"
+  install -m 0644 "$BOOT_LOGO" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus-logo.png"
+  install -m 0644 "$REPO_ROOT/branding/boot/arcanus/arcanus.plymouth" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus.plymouth"
+  install -m 0644 "$REPO_ROOT/branding/boot/arcanus/arcanus.script" "$ROOTFS/usr/share/plymouth/themes/arcanus/arcanus.script"
 
-install -d "$ROOTFS/usr/share/themes"
-copy_tree "$THEME_SRC" "$ROOTFS/usr/share/themes/arcanus-dark"
+  install -d "$ROOTFS/usr/share/themes"
+  copy_tree "$THEME_SRC" "$ROOTFS/usr/share/themes/arcanus-dark"
+fi
 
+# Local System Management & Utility Hooks
 install -d "$ROOTFS/usr/local/bin"
 install -m 0755 "$REPO_ROOT/control-centre/arcanus-control-centre" "$ROOTFS/usr/local/bin/arcanus-control-centre"
 install -m 0755 "$REPO_ROOT/control-centre/arcanus-welcome" "$ROOTFS/usr/local/bin/arcanus-welcome"
 
-if [[ "$ROOTFS" == "/" ]]; then
-  if command -v update-alternatives >/dev/null 2>&1 && [[ -d /usr/share/plymouth/themes ]]; then
-    update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/arcanus/arcanus.plymouth 200 || true
-    update-alternatives --set default.plymouth /usr/share/plymouth/themes/arcanus/arcanus.plymouth || true
-  fi
+# Finalize Environment Engine
+if [[ "$PROFILE" == "desktop" ]]; then
+  if [[ "$ROOTFS" == "/" ]]; then
+    if command -v update-alternatives >/dev/null 2>&1 && [[ -d /usr/share/plymouth/themes ]]; then
+      update-alternatives --install /usr/share/plymouth/themes/default.plymouth default.plymouth /usr/share/plymouth/themes/arcanus/arcanus.plymouth 200 || true
+      update-alternatives --set default.plymouth /usr/share/plymouth/themes/arcanus/arcanus.plymouth || true
+    fi
 
-  if command -v update-initramfs >/dev/null 2>&1; then
-    update-initramfs -u || true
-  fi
+    if command -v update-initramfs >/dev/null 2>&1; then
+      update-initramfs -u || true
+    fi
 
-  if command -v update-grub >/dev/null 2>&1; then
-    update-grub || true
-  fi
-else
-  cat <<'NOTE'
+    if command -v update-grub >/dev/null 2>&1; then
+      update-grub || true
+    fi
+  else
+    cat <<'NOTE'
 Branding was applied to an offline rootfs.
 
 After first boot into that system, run:
@@ -113,6 +143,7 @@ After first boot into that system, run:
   sudo update-initramfs -u
   sudo update-grub
 NOTE
+  fi
 fi
 
-echo "Applied Arcanus OS Alpha branding to $ROOTFS"
+echo "Successfully applied Arcanus OS Alpha [$PROFILE] branding to $ROOTFS"
