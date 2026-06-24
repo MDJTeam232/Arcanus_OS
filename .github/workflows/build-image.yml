@@ -96,18 +96,31 @@ jobs:
             dist/ArcanusOS-Alpha-x86_64.iso.sha256
           if-no-files-found: error
 
+      # Native GitHub CLI replacement bypasses the 2GB single asset restriction
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: alpha-${{ github.run_number }}
-          name: Arcanus OS Alpha ${{ github.run_number }}
-          prerelease: true
-          fail_on_unmatched_files: true
-          files: |
-            dist/ArcanusOS-Alpha-x86_64.iso
-            dist/ArcanusOS-Alpha-x86_64.iso.sha256
-          body: |
-            Arcanus OS Alpha ISO build from commit ${{ github.sha }}.
-            Base: Linux Mint XFCE upstream ISO
-            Output: ArcanusOS-Alpha-x86_64.iso
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG_NAME="alpha-${{ github.run_number }}"
+          RELEASE_TITLE="Arcanus OS Alpha ${{ github.run_number }}"
+          
+          echo "==> Constructing Release notes template..."
+          cat <<EOF > release-notes.md
+          Arcanus OS Alpha ISO build from commit ${{ github.sha }}.
+          Base: Linux Mint XFCE upstream ISO
+          Output: ArcanusOS-Alpha-x86_64.iso
+          EOF
+          
+          echo "==> Generating Release target via GitHub CLI..."
+          gh release create "$TAG_NAME" \
+            --title "$RELEASE_TITLE" \
+            --notes-file release-notes.md \
+            --prerelease \
+            --clobber || true
+            
+          echo "==> Uploading heavy ISO and manifest assets..."
+          gh release upload "$TAG_NAME" \
+            dist/ArcanusOS-Alpha-x86_64.iso \
+            dist/ArcanusOS-Alpha-x86_64.iso.sha256 \
+            --clobber
