@@ -234,19 +234,53 @@ rebrand_iso_boot_files() {
   \) -print0)
 }
 
+ensure_live_root_skeleton() {
+  # Casper/init needs these paths inside the squashfs. Previously mksquashfs
+  # used "-e dev", which omitted /dev entirely and live boot died with:
+  #   cannot create /dev/null: Directory nonexistent
+  local d
+  for d in proc sys dev dev/pts dev/shm run tmp; do
+    install -d -m 755 "$SQUASHFS_ROOT/$d"
+  done
+  chmod 1777 "$SQUASHFS_ROOT/tmp" 2>/dev/null || true
+
+  # Minimal device nodes for early userspace (kept if originals already exist).
+  if command -v mknod >/dev/null 2>&1; then
+    [[ -e "$SQUASHFS_ROOT/dev/null" ]]    || mknod -m 666 "$SQUASHFS_ROOT/dev/null"    c 1 3
+    [[ -e "$SQUASHFS_ROOT/dev/zero" ]]    || mknod -m 666 "$SQUASHFS_ROOT/dev/zero"    c 1 5
+    [[ -e "$SQUASHFS_ROOT/dev/full" ]]    || mknod -m 666 "$SQUASHFS_ROOT/dev/full"    c 1 7
+    [[ -e "$SQUASHFS_ROOT/dev/random" ]]  || mknod -m 666 "$SQUASHFS_ROOT/dev/random"  c 1 8
+    [[ -e "$SQUASHFS_ROOT/dev/urandom" ]] || mknod -m 666 "$SQUASHFS_ROOT/dev/urandom" c 1 9
+    [[ -e "$SQUASHFS_ROOT/dev/tty" ]]     || mknod -m 666 "$SQUASHFS_ROOT/dev/tty"     c 5 0
+    [[ -e "$SQUASHFS_ROOT/dev/console" ]] || mknod -m 600 "$SQUASHFS_ROOT/dev/console" c 5 1
+    [[ -e "$SQUASHFS_ROOT/dev/ptmx" ]]    || mknod -m 666 "$SQUASHFS_ROOT/dev/ptmx"    c 5 2
+  fi
+}
+
 regenerate_squashfs() {
   log "Unmounting chroot before squashfs generation"
   unmount_chroot
 
-  log "Regenerating squashfs"
+  # Clear leftover contents under virtual-FS dirs (never pack host bind mounts).
+  # Keep the directories — do not mksquashfs -e them away.
+  local vdir
+  for vdir in proc sys run tmp; do
+    if [[ -d "$SQUASHFS_ROOT/$vdir" ]] && ! mountpoint -q "$SQUASHFS_ROOT/$vdir"; then
+      find "$SQUASHFS_ROOT/$vdir" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + 2>/dev/null || true
+    fi
+  done
+
+  ensure_live_root_skeleton
+
+  log "Regenerating squashfs (including /dev — required for live boot)"
   rm -f "$ISO_ROOT/casper/filesystem.squashfs"
-  # Exclude virtual filesystems; -progress keeps CI logs alive during long compress
+  # No -e dev/proc/sys/run/tmp: empty mountpoint dirs + /dev nodes must ship
+  # in the image. Virtual FS *contents* were cleaned above after unmount.
   mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" \
     -noappend \
     -comp xz \
     -b 1M \
-    -progress \
-    -e proc -e sys -e dev -e run -e tmp
+    -progress
 
   if [[ -f "$ISO_ROOT/casper/filesystem.size" ]]; then
     log "Updating casper/filesystem.size"
@@ -255,7 +289,6 @@ regenerate_squashfs() {
 
   if [[ -f "$ISO_ROOT/casper/filesystem.manifest" ]]; then
     log "Refreshing casper/filesystem.manifest"
-    # Lightweight bind so dpkg-query can run without a full chroot setup
     mount -t proc proc "$SQUASHFS_ROOT/proc" 2>/dev/null || true
     if chroot "$SQUASHFS_ROOT" dpkg-query -W --showformat='${Package} ${Version}\n' \
       > "$ISO_ROOT/casper/filesystem.manifest.tmp" 2>/dev/null; then
