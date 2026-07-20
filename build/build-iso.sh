@@ -231,15 +231,39 @@ rebrand_iso_boot_files() {
 }
 
 regenerate_squashfs() {
+  log "Unmounting chroot before squashfs generation"
+  unmount_chroot
+
   log "Regenerating squashfs"
   rm -f "$ISO_ROOT/casper/filesystem.squashfs"
-  # Removed >/dev/null and added -progress to reveal the build status in CI logs
+  # Exclude virtual filesystems; -progress keeps CI logs alive during long compress
   mksquashfs "$SQUASHFS_ROOT" "$ISO_ROOT/casper/filesystem.squashfs" \
     -noappend \
     -comp xz \
     -b 1M \
     -progress \
     -e proc -e sys -e dev -e run -e tmp
+
+  if [[ -f "$ISO_ROOT/casper/filesystem.size" ]]; then
+    log "Updating casper/filesystem.size"
+    du -sx --block-size=1 "$SQUASHFS_ROOT" | cut -f1 > "$ISO_ROOT/casper/filesystem.size"
+  fi
+
+  if [[ -f "$ISO_ROOT/casper/filesystem.manifest" ]]; then
+    log "Refreshing casper/filesystem.manifest"
+    # Lightweight bind so dpkg-query can run without a full chroot setup
+    mount -t proc proc "$SQUASHFS_ROOT/proc" 2>/dev/null || true
+    if chroot "$SQUASHFS_ROOT" dpkg-query -W --showformat='${Package} ${Version}\n' \
+      > "$ISO_ROOT/casper/filesystem.manifest.tmp" 2>/dev/null; then
+      mv "$ISO_ROOT/casper/filesystem.manifest.tmp" "$ISO_ROOT/casper/filesystem.manifest"
+    else
+      rm -f "$ISO_ROOT/casper/filesystem.manifest.tmp"
+      log "Could not refresh filesystem.manifest; keeping upstream copy"
+    fi
+    if mountpoint -q "$SQUASHFS_ROOT/proc"; then
+      umount "$SQUASHFS_ROOT/proc" || true
+    fi
+  fi
 }
 
 regenerate_md5sums() {
@@ -347,6 +371,7 @@ main() {
   extract_iso
   extract_squashfs
   apply_arcanus_branding
+  rebrand_iso_boot_files
   regenerate_squashfs
   regenerate_md5sums
   repack_iso

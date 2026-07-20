@@ -1,0 +1,27 @@
+# Ubuntu host image for remastering Linux Mint into Arcanus OS Alpha.
+# Used by build/build-docker.sh so macOS (and other non-Linux hosts) can build.
+#
+# Always amd64: the Mint live filesystem and chroot tools are x86_64.
+# On Apple Silicon, Docker Desktop emulates this via Rosetta/QEMU.
+
+FROM --platform=linux/amd64 ubuntu:24.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gpg \
+    isolinux \
+    rsync \
+    squashfs-tools \
+    syslinux-common \
+    xorriso \
+    ripgrep \
+  && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+# Default entrypoint builds the ISO. Override for debugging.
+ENTRYPOINT ["bash", "build/build-iso.sh"]

@@ -9,9 +9,11 @@ on:
       - "build/**"
       - "control-centre/**"
       - "docs/**"
+      - "rootfs/**"
       - "scripts/**"
       - "theme/**"
       - "Makefile"
+      - "makefile"
       - ".github/workflows/build-image.yml"
   pull_request:
   workflow_dispatch:
@@ -34,7 +36,7 @@ jobs:
       - name: Verify executable scripts
         run: |
           chmod +x scripts/verify-setup.sh scripts/apply-branding.sh scripts/package-artifact.sh
-          chmod +x build/build-iso.sh build/build-locally.sh
+          chmod +x build/build-iso.sh build/build-locally.sh build/build-docker.sh
           chmod +x control-centre/arcanus-control-centre control-centre/arcanus-welcome
 
       - name: Validate scaffold
@@ -43,22 +45,24 @@ jobs:
   build-iso:
     needs: validate
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 180
+    # PRs validate only; ISO build on main push or manual dispatch
     if: github.event_name != 'pull_request'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Optimization Step: Reclaim ~30GB+ of runner disk space
-      - name: Maximize Runner Disk Space
+      # Reclaim ~30GB+ of runner disk space for ISO remaster
+      - name: Maximize runner disk space
         run: |
-          echo "==> Reclaiming disk space from pre-installed software..."
-          sudo rm -rf /usr/share/dotnet
-          sudo rm -rf /usr/local/lib/android
-          sudo rm -rf /opt/ghc
-          sudo rm -rf /opt/hostedtoolcache/CodeQL
-          echo "==> Current available storage space:"
-          df -h /
+          echo "Before cleanup:"
+          df -h
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost /usr/share/swift /usr/local/.ghcup \
+            /opt/hostedtoolcache/CodeQL || true
+          sudo docker system prune -af || true
+          echo "After cleanup:"
+          df -h
 
       - name: Install ISO build dependencies
         run: |
@@ -74,10 +78,18 @@ jobs:
             syslinux-common \
             xorriso
 
+      - name: Cache upstream Linux Mint ISO
+        uses: actions/cache@v4
+        with:
+          path: .cache/iso
+          key: mint-iso-${{ hashFiles('build/config/mint-alpha.conf') }}
+          restore-keys: |
+            mint-iso-
+
       - name: Build ISO
         run: |
           chmod +x scripts/verify-setup.sh scripts/apply-branding.sh scripts/package-artifact.sh
-          chmod +x build/build-iso.sh build/build-locally.sh
+          chmod +x build/build-iso.sh build/build-locally.sh build/build-docker.sh
           chmod +x control-centre/arcanus-control-centre control-centre/arcanus-welcome
           sudo build/build-iso.sh
 
@@ -86,6 +98,7 @@ jobs:
           cd dist
           sha256sum -c ArcanusOS-Alpha-x86_64.iso.sha256
           ls -lh ArcanusOS-Alpha-x86_64.iso ArcanusOS-Alpha-x86_64.iso.sha256
+          df -h
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
@@ -95,8 +108,10 @@ jobs:
             dist/ArcanusOS-Alpha-x86_64.iso
             dist/ArcanusOS-Alpha-x86_64.iso.sha256
           if-no-files-found: error
+          retention-days: 14
+          compression-level: 0
 
-      # Native GitHub CLI replacement bypasses the 2GB single asset restriction
+      # gh CLI upload avoids the ~2GB softprops/action-gh-release asset limit
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -104,22 +119,22 @@ jobs:
         run: |
           TAG_NAME="alpha-${{ github.run_number }}"
           RELEASE_TITLE="Arcanus OS Alpha ${{ github.run_number }}"
-          
-          echo "==> Constructing Release notes template..."
+
           cat <<EOF > release-notes.md
-          Arcanus OS Alpha ISO build from commit ${{ github.sha }}.
-          Base: Linux Mint XFCE upstream ISO
-          Output: ArcanusOS-Alpha-x86_64.iso
+          Arcanus OS Alpha ISO build from commit \`${{ github.sha }}\`.
+
+          **Base:** Linux Mint 22.3 XFCE (upstream)
+          **Output:** \`ArcanusOS-Alpha-x86_64.iso\`
+
+          Download the ISO from this release or from the workflow **Artifacts** section.
           EOF
-          
-          echo "==> Generating Release target via GitHub CLI..."
+
           gh release create "$TAG_NAME" \
             --title "$RELEASE_TITLE" \
             --notes-file release-notes.md \
             --prerelease \
             --clobber || true
-            
-          echo "==> Uploading heavy ISO and manifest assets..."
+
           gh release upload "$TAG_NAME" \
             dist/ArcanusOS-Alpha-x86_64.iso \
             dist/ArcanusOS-Alpha-x86_64.iso.sha256 \

@@ -27,6 +27,22 @@ sudo MINT_ISO_URL=https://mirror/path/linuxmint-xfce.iso \
 
 ## Local Build
 
+### Option A — Docker (recommended on macOS)
+
+Requires Docker Desktop (or any Docker engine). The upstream Mint ISO is cached under `.cache/iso/` (~2.8 GB).
+
+```bash
+make build-docker
+```
+
+or:
+
+```bash
+build/build-docker.sh
+```
+
+### Option B — Native Linux
+
 Ubuntu/Debian host dependencies:
 
 ```bash

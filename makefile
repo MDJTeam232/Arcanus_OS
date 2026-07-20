@@ -1,6 +1,6 @@
 # Arcanus OS Alpha - Build Makefile
 
-.PHONY: help validate build apply package clean
+.PHONY: help validate build build-docker apply package clean
 
 # Default staging configuration targets
 ROOTFS  ?= /mnt/mint-rootfs
@@ -15,7 +15,8 @@ help:
 	@echo ""
 	@echo "Targets:"
 	@echo "  validate          - Evaluate the selected structural workspace blueprint"
-	@echo "  build             - Compile the production x86_64 installation ISO media"
+	@echo "  build             - Build ISO natively (Linux + sudo)"
+	@echo "  build-docker      - Build ISO via Docker (macOS/Linux)"
 	@echo "  apply ROOTFS=...  - Apply branding layouts directly onto a mounted rootfs target"
 	@echo "  package IMAGE=... - Format, calculate checksums, and stage custom images in dist/"
 	@echo "  clean             - Safely clear out scratch areas, build dirs, and local images"
@@ -29,6 +30,9 @@ validate:
 
 build: validate
 	@build/build-locally.sh $(PROFILE)
+
+build-docker: validate
+	@build/build-docker.sh
 
 apply:
 	@scripts/apply-branding.sh $(PROFILE) "$(ROOTFS)"

@@ -12,13 +12,16 @@ dist/
 
 ```bash
 make validate
-make build
+make build          # native Linux + sudo
+make build-docker   # macOS or Linux via Docker
 ```
 
 Equivalent direct build:
 
 ```bash
 sudo build/build-iso.sh
+# or on macOS:
+build/build-docker.sh
 ```
 
 ## Flashing

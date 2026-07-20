@@ -144,18 +144,22 @@ echo
 
 echo "Scope guard"
 echo "-----------"
-# Standard exclusions extended to allow tablet configuration profiles without tripping false flags
-if rg -n "Arcanus Vault|Vault OS|AV Vault|av-vault|X96Q|Armbian" "$PROJECT_ROOT" \
-  -g '!dist/**' \
-  -g '!.git/**' \
-  -g '!scripts/verify-setup.sh' \
-  -g '!*.png' \
-  -g '!*.jpg' \
-  -g '!*.DS_Store' >/tmp/arcanus-scope-hits.txt; then
-  warn "legacy Vault/Armbian terms still exist"
-  sed -n '1,40p' /tmp/arcanus-scope-hits.txt
+# Standard exclusions; skip gracefully when ripgrep is unavailable (e.g. bare hosts)
+if command -v rg >/dev/null 2>&1; then
+  if rg -n "Arcanus Vault|Vault OS|AV Vault|av-vault|X96Q|Armbian" "$PROJECT_ROOT" \
+    -g '!dist/**' \
+    -g '!.git/**' \
+    -g '!scripts/verify-setup.sh' \
+    -g '!*.png' \
+    -g '!*.jpg' \
+    -g '!*.DS_Store' >/tmp/arcanus-scope-hits.txt; then
+    warn "legacy Vault/Armbian terms still exist"
+    sed -n '1,40p' /tmp/arcanus-scope-hits.txt
+  else
+    pass "no legacy Vault/Armbian terms found in active text files"
+  fi
 else
-  pass "no legacy Vault/Armbian terms found in active text files"
+  warn "ripgrep (rg) not installed; skipped legacy scope scan"
 fi
 echo
 
