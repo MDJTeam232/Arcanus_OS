@@ -111,7 +111,8 @@ jobs:
           retention-days: 14
           compression-level: 0
 
-      # gh CLI upload avoids the ~2GB softprops/action-gh-release asset limit
+      # gh CLI can attach large ISO assets; softprops/action-gh-release hits ~2GB limits.
+      # Note: `gh release create` has no --clobber flag (that is upload-only).
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
@@ -120,7 +121,7 @@ jobs:
           TAG_NAME="alpha-${{ github.run_number }}"
           RELEASE_TITLE="Arcanus OS Alpha ${{ github.run_number }}"
 
-          cat <<EOF > release-notes.md
+          cat > release-notes.md <<EOF
           Arcanus OS Alpha ISO build from commit \`${{ github.sha }}\`.
 
           **Base:** Linux Mint 22.3 XFCE (upstream)
@@ -129,13 +130,15 @@ jobs:
           Download the ISO from this release or from the workflow **Artifacts** section.
           EOF
 
-          gh release create "$TAG_NAME" \
-            --title "$RELEASE_TITLE" \
-            --notes-file release-notes.md \
-            --prerelease \
-            --clobber || true
+          # Recreate tag/release if this run number is reused (workflow re-run)
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release delete "$TAG_NAME" --yes --cleanup-tag || true
+          fi
 
-          gh release upload "$TAG_NAME" \
+          # Attach files on create (no --clobber on create; that flag is upload-only)
+          gh release create "$TAG_NAME" \
             dist/ArcanusOS-Alpha-x86_64.iso \
             dist/ArcanusOS-Alpha-x86_64.iso.sha256 \
-            --clobber
+            --title "$RELEASE_TITLE" \
+            --notes-file release-notes.md \
+            --prerelease

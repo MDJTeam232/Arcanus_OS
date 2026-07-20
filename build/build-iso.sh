@@ -83,7 +83,11 @@ download_base_iso() {
 
 reset_workspace() {
   log "Preparing build workspace"
-  rm -rf "$BUILD_ROOT"
+  # Wipe contents rather than the directory itself so Docker bind-mounts of
+  # BUILD_ROOT (e.g. .build/iso) are not removed ("Device or resource busy").
+  if [[ -d "$BUILD_ROOT" ]]; then
+    find "$BUILD_ROOT" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
+  fi
   install -d "$ISO_ROOT" "$SQUASHFS_ROOT" "$DIST_DIR"
 }
 
