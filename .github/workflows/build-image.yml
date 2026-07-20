@@ -111,15 +111,25 @@ jobs:
           retention-days: 14
           compression-level: 0
 
-      # gh CLI can attach large ISO assets; softprops/action-gh-release hits ~2GB limits.
-      # Note: `gh release create` has no --clobber flag (that is upload-only).
+      # GitHub Release assets are hard-capped at 2 GiB per file (2147483648 bytes).
+      # Our ISO is ~2.7–2.9 GiB, so we publish split parts + sha256 on Releases,
+      # and the full unsplit ISO as a workflow Artifact (higher size limit, 14-day retention).
       - name: Create GitHub release
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG_NAME="alpha-${{ github.run_number }}"
           RELEASE_TITLE="Arcanus OS Alpha ${{ github.run_number }}"
+          ISO="dist/ArcanusOS-Alpha-x86_64.iso"
+          SUM="${ISO}.sha256"
+          PART_PREFIX="${ISO}.part"
+
+          # 1900 MiB parts stay under the 2 GiB release asset limit with margin
+          rm -f "${PART_PREFIX}"*
+          split -b 1900M -d -a 2 "$ISO" "$PART_PREFIX"
+          ls -lh "$ISO" "$SUM" "${PART_PREFIX}"*
 
           cat > release-notes.md <<EOF
           Arcanus OS Alpha ISO build from commit \`${{ github.sha }}\`.
@@ -127,18 +137,28 @@ jobs:
           **Base:** Linux Mint 22.3 XFCE (upstream)
           **Output:** \`ArcanusOS-Alpha-x86_64.iso\`
 
-          Download the ISO from this release or from the workflow **Artifacts** section.
+          ## Download options
+
+          ### A) Workflow artifact (full ISO, easiest)
+          Open this workflow run → **Artifacts** → **ArcanusOS-Alpha-x86_64** (14-day retention).
+
+          ### B) Release assets (split — GitHub 2 GiB/file limit)
+          Download every \`ArcanusOS-Alpha-x86_64.iso.part*\` file plus the \`.sha256\`, then:
+
+          \`\`\`bash
+          cat ArcanusOS-Alpha-x86_64.iso.part* > ArcanusOS-Alpha-x86_64.iso
+          sha256sum -c ArcanusOS-Alpha-x86_64.iso.sha256
+          \`\`\`
           EOF
 
-          # Recreate tag/release if this run number is reused (workflow re-run)
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release delete "$TAG_NAME" --yes --cleanup-tag || true
           fi
 
-          # Attach files on create (no --clobber on create; that flag is upload-only)
+          # shellcheck disable=SC2086
           gh release create "$TAG_NAME" \
-            dist/ArcanusOS-Alpha-x86_64.iso \
-            dist/ArcanusOS-Alpha-x86_64.iso.sha256 \
+            $SUM \
+            ${PART_PREFIX}* \
             --title "$RELEASE_TITLE" \
             --notes-file release-notes.md \
             --prerelease

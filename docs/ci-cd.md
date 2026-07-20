@@ -56,7 +56,33 @@ On push to `main`, the workflow also creates a prerelease tag:
 alpha-<run-number>
 ```
 
-with the same ISO + SHA256 attached under **Releases**.
+**GitHub Release assets are limited to 2 GiB per file.** The full ISO is larger (~2.7–2.9 GiB), so Releases attach:
+
+```text
+ArcanusOS-Alpha-x86_64.iso.part00
+ArcanusOS-Alpha-x86_64.iso.part01
+…
+ArcanusOS-Alpha-x86_64.iso.sha256
+```
+
+Reassemble and verify:
+
+```bash
+cat ArcanusOS-Alpha-x86_64.iso.part* > ArcanusOS-Alpha-x86_64.iso
+sha256sum -c ArcanusOS-Alpha-x86_64.iso.sha256
+```
+
+Prefer the **workflow artifact** when it is still within the 14-day retention window (single full ISO download).
+
+### Storage limits (why old artifacts matter)
+
+| Limit | What it affects |
+|-------|-----------------|
+| **Actions artifact storage** (account/org quota) | Upload of workflow artifacts fails when quota is full. Delete old artifacts or shorten `retention-days`. |
+| **Release asset size (2 GiB/file)** | Cannot attach the full ISO to a Release; we split or use Artifacts. |
+| **Release storage** | Old prereleases with multi‑GB assets still count; delete unused `alpha-*` releases if needed. |
+
+Cleaning expired or unused Artifacts/Releases is expected hygiene for this project.
 
 ## Pull Requests
 
