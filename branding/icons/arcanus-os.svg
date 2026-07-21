@@ -1,6 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 2a10 10 0 1 0 10 10H12V2z" opacity="0.6"/>
-  <circle cx="12" cy="12" r="10"/>
-  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10"/>
-  <path d="M12 2a15.3 15.3 0 0 0-4 10 15.3 15.3 0 0 0 4 10"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Arrow-A with open centre (air gap) + diamond -->
+  <path
+    d="M32 6 L54 54 L42 54 L32 28 L22 54 L10 54 Z"
+    fill="#a855f7"
+    opacity="0.25"/>
+  <path
+    d="M32 8 L52 52 H40.5 L32 30 L23.5 52 H12 Z"
+    stroke="#c084fc"
+    stroke-width="3.2"
+    stroke-linejoin="round"
+    fill="none"/>
+  <!-- Air-gap diamond on vertical axis -->
+  <path
+    d="M32 34 L36.5 40 L32 46 L27.5 40 Z"
+    fill="#e9d5ff"
+    stroke="#c084fc"
+    stroke-width="1.2"
+    stroke-linejoin="round"/>
 </svg>
